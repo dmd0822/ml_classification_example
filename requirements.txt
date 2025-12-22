@@ -1,22 +1,29 @@
-
 # Core ML / data
-numpy
-pandas
-scikit-learn
+numpy==2.4.0
+pandas==2.3.3
+scikit-learn==1.8.0
+kagglehub==0.3.13
+seaborn==0.13.2
+tensorflow==2.20.0
+spacy==3.8.11
+keras_hub==0.25.0
 
 # Visualization (optional but common)
-matplotlib
+matplotlib==3.10.8
 
 # Notebooks
-jupyter
-ipykernel
+jupyterlab==4.5.1
+jupyter==1.1.1
+ipykernel==7.1.0
+ipywidgets==8.1.8
 
 # Utilities
-tqdm
+tqdm==4.67.1
+datasets==4.4.2
 
 # Testing
-pytest
-pytest-cov
+pytest==9.0.2
+pytest-cov==7.0.0
 
 # Lint/format (optional but recommended)
-ruff
+ruff==0.14.10

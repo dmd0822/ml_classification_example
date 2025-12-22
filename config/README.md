@@ -29,6 +29,13 @@ config/
   prod.yaml
 ```
 
+## Reference example (this repo)
+
+This repo includes a concrete reference config and contract for the HuffPost category classification example:
+
+- `huffpost_category_text.json` (config for `category` + combined `text`)
+- `huffpost_dataset_contract.md` (dataset/schema expectations)
+
 ## Tips
 
 - Make your pipelines accept a config object/path so runs are reproducible.

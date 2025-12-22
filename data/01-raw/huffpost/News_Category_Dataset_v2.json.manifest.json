@@ -1,0 +1,30 @@
+{
+  "dataset": {
+    "name": "HuffPost News Category Dataset",
+    "source_url": "https://huggingface.co/datasets/khalidalt/HuffPost/resolve/main/News_Category_Dataset_v2.json",
+    "format": "jsonl"
+  },
+  "download": {
+    "downloaded_at_utc": "2025-12-22T17:28:10.404448+00:00",
+    "file_path": "data/01-raw/huffpost/News_Category_Dataset_v2.json",
+    "bytes_written": 83917554,
+    "sha256": "fc5d8d34bd4ba55206cd715aa5fdf6d52b6e5e8e32fcac8684d941a9c5cbef95",
+    "approx_line_count": 200853
+  },
+  "schema_check": {
+    "sample_size": 50,
+    "required_keys": [
+      "category",
+      "headline",
+      "short_description"
+    ],
+    "sample_key_union": [
+      "authors",
+      "category",
+      "date",
+      "headline",
+      "link",
+      "short_description"
+    ]
+  }
+}

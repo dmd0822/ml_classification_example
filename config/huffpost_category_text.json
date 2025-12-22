@@ -1,0 +1,49 @@
+{
+  "project": {
+    "name": "huffpost-category-classification"
+  },
+  "dataset": {
+    "name": "HuffPost News Category Dataset",
+    "source_url": "https://huggingface.co/datasets/khalidalt/HuffPost/resolve/main/News_Category_Dataset_v2.json",
+    "format": "jsonl"
+  },
+  "paths": {
+    "raw_dir": "data/01-raw/huffpost",
+    "raw_filename": "News_Category_Dataset_v2.json"
+  },
+  "schema": {
+    "label_col": "category",
+    "headline_col": "headline",
+    "description_col": "short_description",
+    "text_col": "text"
+  },
+  "text_assembly": {
+    "separator": "[SEP]",
+    "null_headline": "",
+    "null_description": "",
+    "strip": true,
+    "normalize_whitespace": true,
+    "drop_empty_text": true,
+    "min_text_length": 1
+  },
+  "split": {
+    "strategy": "stratified",
+    "train_ratio": 0.8,
+    "valid_ratio": 0.1,
+    "test_ratio": 0.1,
+    "random_seed": 42
+  },
+  "visualization": {
+    "color_palette": [
+      "#c6d4e1",
+      "#9bbcd4",
+      "#6fa3c7",
+      "#4a8ab8",
+      "#2f6fa1",
+      "#1f4f75",
+      "#d3d3d3",
+      "#a9a9a9",
+      "#696969"
+    ]
+  }
+}

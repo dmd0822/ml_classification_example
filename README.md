@@ -1,19 +1,18 @@
-# ML Project Structure (Template)
+# ML Classification Example (HuffPost Categories)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Project Name and Description
+## What this repo is
 
-This repository is a lightweight, opinionated template for starting new machine learning projects.
+This repository is a small, opinionated machine learning project that classifies HuffPost news items into categories.
 
-It emphasizes:
+It includes:
 
 - A **staged data layout** (raw → preprocessed → features → predictions)
-- **Pipelines as code** (feature engineering, training, inference) instead of ad-hoc scripts
-- **Explicit entrypoints** for training and inference (useful for CI, Docker, and scheduled runs)
-- **Config separated** from code to support local vs production behaviors
-- **Tests from day one** to keep refactors safe
-- **Infrastructure as Code** support via `infra/` for reproducible environments
+- **Pipelines as code** in `src/pipelines/` (ingest, preprocess, features, training, evaluation, serving)
+- **Explicit entry points** in `entrypoints/` for repeatable runs (local, CI, Docker)
+- A small **FastAPI inference service** (see `src/pipelines/serve/` and the `Dockerfile`)
+- **Infrastructure as Code** for Azure Container Apps under `infra/bicep/`
 
 ## Technology Stack
 
@@ -23,7 +22,7 @@ This template is intentionally minimal; you choose the libraries that fit your p
 - **Environment management:** `venv` (recommended)
 - **Dependencies:** `pip` via `requirements.txt` (starter set included)
 - **Notebooks (optional):** Jupyter, stored in `notebooks/`
-- **Containerization (optional):** Docker (a `Dockerfile` is present but currently empty)
+- **Containerization (optional):** Docker (a ready-to-run `Dockerfile` is included)
 - **Testing (recommended):** `pytest`
 
 ## Project Architecture
@@ -54,8 +53,53 @@ flowchart LR
 
 ### Prerequisites
 
-- Python 3.x installed
+- Python 3.11 recommended
 - (Optional) Docker installed
+
+## Quick start (local Python)
+
+From the repo root:
+
+```powershell
+python -m venv .venv
+\.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Run the full pipeline (HuffPost)
+
+1. Download raw dataset:
+
+```powershell
+python -m entrypoints.download_huffpost_raw --config config/huffpost_category_text.json
+```
+
+1. Preprocess + split:
+
+```powershell
+python -m entrypoints.preprocess_huffpost --config config/huffpost_category_text.json
+```
+
+1. Build TF-IDF features:
+
+```powershell
+python -m entrypoints.featurize_huffpost_tfidf --config config/huffpost_category_text.json
+```
+
+1. Train/evaluate a baseline model:
+
+```powershell
+python -m entrypoints.train_eval_huffpost_tfidf_logreg --config config/huffpost_category_text.json
+```
+
+Other training entry points are available (Dense TF-IDF, DistilBERT frozen/unfrozen). See `entrypoints/`.
+
+### Run tests
+
+```powershell
+pytest -q
+```
 
 ## Python Environment Setup
 
@@ -136,7 +180,7 @@ See the folder-level docs for details:
 
 - Clear staged `data/` pipeline (raw → preprocessed → features → predictions)
 - Pipelines as reusable code (`src/pipelines/`) instead of one-off scripts
-- Explicit operational entrypoints (`entrypoints/`) to simplify automation
+- Explicit operational entry points (`entrypoints/`) to simplify automation
 - Infrastructure as Code support (`infra/`) for reproducible environments
 - Separate configuration directory (`config/`) to avoid hard-coding behavior
 - Tests included from the start (`tests/`)
@@ -150,7 +194,7 @@ No single workflow is enforced, but the structure is designed to support a pragm
 2. Turn stable logic into pipelines in `src/pipelines/`.
 3. Create runnable scripts in `entrypoints/` for training/inference.
 4. Add/expand tests in `tests/` as pipelines stabilize.
-5. (Optional) Containerize entrypoints for reproducible runs.
+5. (Optional) Containerize entry points for reproducible runs.
 6. (Optional) Provision/deploy runtime resources via `infra/`.
 
 Branching strategy is not prescribed by this template; a common default is feature branches with pull requests into `main`.
@@ -183,11 +227,40 @@ Example (once you add `pytest`):
 pytest
 ```
 
+## Inference API (Docker)
+
+The Docker image bakes a "best" model and tokenizer into the image, then serves:
+
+- `GET /health`
+- `POST /predict`
+
+Build:
+
+```powershell
+docker build -t ml-classification-infer-api:local .
+```
+
+Run:
+
+```powershell
+docker run --rm -p 8080:8080 ml-classification-infer-api:local
+```
+
+Test it:
+
+```powershell
+curl http://localhost:8080/health
+
+curl -X POST http://localhost:8080/predict \
+  -H "Content-Type: application/json" \
+  -d '{"headline":"NASA finds new planet","short_description":"A new exoplanet was discovered.","top_k":3}'
+```
+
 ## Contributing
 
 This repo is intended as a starting point. If you extend this template:
 
-- Keep the folder responsibilities consistent (pipelines vs entrypoints vs notebooks)
+- Keep the folder responsibilities consistent (pipelines vs entry points vs notebooks)
 - Update the relevant folder `README.md` when you add conventions
 - Prefer small, testable pipeline functions
 - Follow the Python coding standards described above

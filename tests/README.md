@@ -31,6 +31,12 @@ If you’re using Python, a common choice is `pytest`:
 pytest
 ```
 
+Run a single test file:
+
+```powershell
+python -m pytest -q tests/pipelines/test_preprocess_huffpost.py
+```
+
 ## How This Fits
 
 - Primarily validates logic in [`src/pipelines/`](../src/pipelines/)

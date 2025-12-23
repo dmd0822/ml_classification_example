@@ -31,6 +31,14 @@ data/04-predictions/
 ## How This Fits
 
 - Upstream: feature artifacts in [`data/03-features/`](../03-features/)
-- Produced by inference pipelines in [pipeline code](../../s%72c/pipelines/) executed via [`entrypoints/`](../../entrypoints/)
+- Produced by inference pipelines in [pipeline code](../../src/pipelines/) executed via [`entrypoints/`](../../entrypoints/)
 - Often consumed by reporting, dashboards, or application services outside this repo
+
+## How to generate (this repo)
+
+Training entry points write their run artifacts under `data/04-predictions/`:
+
+```powershell
+python -m entrypoints.train_eval_huffpost_tfidf_logreg --config config/huffpost_category_text.json
+```
 

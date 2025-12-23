@@ -28,11 +28,45 @@ You can add scripts like:
 - Put ML logic in `src/pipelines/` so it’s testable.
 - Use a `if __name__ == "__main__":` guard.
 
-## Example (suggested)
+## What this repo provides
 
-```bash
-python -m entrypoints.train --config config/local.yaml
-python -m entrypoints.predict --config config/prod.yaml
+All entry points accept:
+
+- `--config` (defaults to `config/huffpost_category_text.json`)
+- `--force` (overwrite outputs)
+
+### Download raw data
+
+```powershell
+python -m entrypoints.download_huffpost_raw --config config/huffpost_category_text.json
+```
+
+### Preprocess
+
+```powershell
+python -m entrypoints.preprocess_huffpost --config config/huffpost_category_text.json
+```
+
+### TF-IDF features
+
+```powershell
+python -m entrypoints.featurize_huffpost_tfidf --config config/huffpost_category_text.json
+```
+
+### Train + evaluate
+
+Baseline (TF-IDF + Logistic Regression):
+
+```powershell
+python -m entrypoints.train_eval_huffpost_tfidf_logreg --config config/huffpost_category_text.json
+```
+
+Other experiments:
+
+```powershell
+python -m entrypoints.train_eval_huffpost_tfidf_dense --config config/huffpost_category_text.json
+python -m entrypoints.train_eval_huffpost_distilbert_frozen --config config/huffpost_category_text.json
+python -m entrypoints.train_eval_huffpost_distilbert_unfrozen --config config/huffpost_category_text.json
 ```
 
 ## How This Fits

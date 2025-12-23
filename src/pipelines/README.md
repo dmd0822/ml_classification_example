@@ -22,11 +22,13 @@ Treat feature engineering, training, inference, and evaluation as pipelines rath
 ```text
 src/
   pipelines/
-    features/
-    train/
-    infer/
-    evaluate/
-    common/
+    common/      # config, shared helpers
+    ingest/      # download/import raw data
+    preprocess/  # cleaning/splitting
+    features/    # feature extraction
+    train/       # training experiments
+    evaluate/    # metrics
+    serve/       # FastAPI + inference helpers
 ```
 
 ## Design principles (recommended)
@@ -39,6 +41,25 @@ src/
 ## Relationship to `entrypoints/`
 
 Entry points should be thin wrappers that call the functions defined here.
+
+## Running pipeline code
+
+In general, you run pipeline code via the entry points:
+
+```powershell
+python -m entrypoints.download_huffpost_raw
+python -m entrypoints.preprocess_huffpost
+python -m entrypoints.featurize_huffpost_tfidf
+python -m entrypoints.train_eval_huffpost_tfidf_logreg
+```
+
+The HTTP inference API is served by:
+
+```powershell
+python -m uvicorn src.pipelines.serve.api:app --host 127.0.0.1 --port 8080
+```
+
+Note: for local (non-Docker) runs you must set env vars like `KERAS_MODEL_PATH`, `TOKENIZER_DIR`, and `LABEL_ENCODER_PATH` to point at your artifacts.
 
 ## How This Fits
 

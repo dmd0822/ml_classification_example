@@ -36,6 +36,15 @@ Keeping notebooks separate helps prevent exploratory code from drifting into pro
 
 Once an approach is working, extract the reusable parts into pipeline code so it can be tested and automated.
 
+## Run notebooks
+
+```powershell
+python -m venv .venv
+\.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+jupyter lab
+```
+
 ## How This Fits
 
 - Reads inputs from [`data/01-raw/`](../data/01-raw/) and [`data/02-preprocessed/`](../data/02-preprocessed/)

@@ -29,5 +29,11 @@ data/01-raw/
 
 - Upstream: external systems / data sources
 - Downstream: preprocessing outputs in [`data/02-preprocessed/`](../02-preprocessed/)
-- Processing logic typically lives in [pipeline code](../../s%72c/pipelines/) and is run via [`entrypoints/`](../../entrypoints/)
+- Processing logic typically lives in [pipeline code](../../src/pipelines/) and is run via [`entrypoints/`](../../entrypoints/)
+
+## How to populate (this repo)
+
+```powershell
+python -m entrypoints.download_huffpost_raw --config config/huffpost_category_text.json
+```
 

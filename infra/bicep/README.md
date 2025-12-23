@@ -22,10 +22,22 @@ This folder contains Bicep to deploy the inference API container to Azure using:
 
 ## Deploy (Azure CLI)
 
+Prerequisites:
+
+- Azure CLI installed (`az`)
+- Logged in (`az login`)
+- Docker installed (to build/tag/push images)
+
 1. Pick a resource group:
 
 ```powershell
 az group create --name <rg> --location <location>
+```
+
+1. (Optional) Set subscription:
+
+```powershell
+az account set --subscription <subscriptionId>
 ```
 
 1. Deploy Bicep:
@@ -44,6 +56,12 @@ az deployment group show --resource-group <rg> --name <deploymentName> --query p
 ```
 
 1. Push your image to ACR.
+
+Build locally:
+
+```powershell
+docker build -t ml-classification-infer-api:local .
+```
 
 If you built locally as `ml-classification-infer-api:local`, tag + push:
 

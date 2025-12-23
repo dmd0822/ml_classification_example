@@ -46,3 +46,9 @@ infra/
 ## Notes
 
 - If you add CI/CD later, `infra/` is where provisioning and deployment steps usually live.
+
+## This repo
+
+This repository includes Azure infrastructure under `infra/bicep/` for deploying the inference API container to Azure Container Apps.
+
+See `infra/bicep/README.md` for deployment commands.

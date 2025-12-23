@@ -36,6 +36,21 @@ This repo includes a concrete reference config and contract for the HuffPost cat
 - `huffpost_category_text.json` (config for `category` + combined `text`)
 - `huffpost_dataset_contract.md` (dataset/schema expectations)
 
+## Using the config in runs
+
+All provided entry points take `--config`:
+
+```powershell
+python -m entrypoints.download_huffpost_raw --config config/huffpost_category_text.json
+python -m entrypoints.preprocess_huffpost --config config/huffpost_category_text.json
+python -m entrypoints.featurize_huffpost_tfidf --config config/huffpost_category_text.json
+```
+
+Common knobs:
+
+- `paths.*` controls where each stage writes artifacts under `data/`
+- `text_assembly.*` controls how `headline` + `short_description` are combined into a single `text` field
+
 ## Tips
 
 - Make your pipelines accept a config object/path so runs are reproducible.

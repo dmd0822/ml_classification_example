@@ -1,0 +1,15 @@
+# Minimal runtime dependencies for the inference HTTP API container.
+#
+# This is intentionally smaller than requirements.txt (no notebooks/EDA deps).
+# We install keras_hub separately with --no-deps to avoid pulling tensorflow-text,
+# which conflicts with TensorFlow 2.20 on Linux.
+
+numpy==2.4.0
+scikit-learn==1.8.0
+
+tensorflow==2.20.0
+tf-keras==2.20.1
+transformers==4.57.3
+
+fastapi==0.115.6
+uvicorn==0.32.1

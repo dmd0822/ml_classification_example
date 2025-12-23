@@ -1,0 +1,21 @@
+.git/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.vscode/
+.ipynb_checkpoints/
+notebooks/
+reports/
+
+# Large datasets (exclude by default)
+data/**
+!data/03-features/huffpost/tfidf_v1/label_encoder.joblib
+!data/04-predictions/huffpost/distilbert_unfrozen/20251223T010101Z/**
+
+# Local analysis artifacts
+notebooks/**
+
+# OS/editor noise
+Thumbs.db
+Desktop.ini

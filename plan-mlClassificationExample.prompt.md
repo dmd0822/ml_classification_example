@@ -11,23 +11,28 @@ Create a reference multi-class classifier where the label is `category`, and the
 2. In `src.pipelines.ingest`, validate required columns exist and write a small manifest (URL, hash, timestamp) next to the raw file.
 
 ### Steps 3) EDA first, but keep it “graduate-able”
-1. Add notebooks in notebooks (e.g., 01_eda_overview.ipynb, 02_baseline_quickstart.ipynb) exploring: class balance by category, missing/empty text rates, length distributions, and top tokens per class.
+1. Add notebooks in `notebooks/` (starting with `01_eda_huffpost_category.ipynb`) exploring: class balance by category, missing/empty text rates, length distributions, duplicates, and top tokens.
 2. Decide preprocessing rules from EDA (drop null/empty, text normalization, optional label filtering like minimum examples per category).
-3. Move stabilized logic into src.pipelines.preprocess.clean_dataset so notebooks consume pipeline outputs.
+3. Save EDA artifacts (PNG/CSV) under `notebooks/eda_artifacts/` and move stabilized logic into `src/pipelines/`.
 
 ### Steps 4) Preprocess and create the combined `text` column into data/02-preprocessed
-1. Implement `combine_text(df, cfg) -> df` in `src.pipelines.features` (or `src.pipelines.preprocess`) that creates `text = headline + sep + short_description` with null-safe normalization.
-2. Output a cleaned, minimal dataset into [data/02-preprocessed/](data/02-preprocessed/) containing at least `text` and `category` (plus optional `id` and `split`).
-3. Add tests in [tests/](tests/) that verify `text` creation (null handling, separator, no empty strings) and that `category` is non-null.
+1. Implement preprocessing in [src/pipelines/preprocess/huffpost.py](src/pipelines/preprocess/huffpost.py) that creates `text = headline + sep + short_description` with null-safe normalization.
+2. Output deterministic splits under `data/02-preprocessed/huffpost/v1/` (`full_clean.csv`, `train.csv`, `valid.csv`, `test.csv`) plus a `preprocess.manifest.json`.
+3. Add tests in [tests/pipelines/test_preprocess_huffpost.py](tests/pipelines/test_preprocess_huffpost.py) that verify `text` creation and dropping invalid rows.
 
 ### Steps 5) Vectorize the new `text` column into data/03-features
-1. Implement vectorization boundaries in `src.pipelines.features`: `fit_vectorizer(text, cfg) -> vectorizer` and `transform_text(vectorizer, text) -> X`.
-2. Persist artifacts under [data/03-features/](data/03-features/) (feature matrices + fitted vectorizer + a manifest with vectorizer params and source snapshot) so experiments are reproducible.
-3. Keep entrypoints thin: they only load config + call pipeline functions; pipeline code owns I/O to the staged folders.
+1. Implement TF-IDF features in [src/pipelines/features/huffpost_tfidf.py](src/pipelines/features/huffpost_tfidf.py), fitting on *train only* and transforming valid/test to avoid leakage.
+2. Persist artifacts under `data/03-features/huffpost/tfidf_v1/` (`X_*.npz`, `y_*.npy`, `tfidf_vectorizer.joblib`, `label_encoder.joblib`) plus a `features.manifest.json`.
+3. Keep entrypoints thin: [entrypoints/featurize_huffpost_tfidf.py](entrypoints/featurize_huffpost_tfidf.py) only loads config + calls the pipeline.
 
 ### Steps 6) Experimentation: train/evaluate on vectors, not raw text
-1. Implement training in `src.pipelines.train.train(X, y, cfg)` and evaluation in `src.pipelines.evaluate` using accuracy + macro‑F1 for multiclass `category`.
-2. Run minimal experiments: TF‑IDF word n‑grams + linear classifier (baseline), then char n‑grams variant; write reports/predictions to [data/04-predictions/](data/04-predictions/).
+1. Implement training in `src.pipelines.train` and evaluation in `src.pipelines.evaluate` using accuracy + macro‑F1 for multiclass `category`.
+2. Run the following experiments and write reports/predictions to [data/04-predictions/](data/04-predictions/):
+	- TF‑IDF + Logistic Regression (classical baseline)
+	- Small custom dense model on TF‑IDF features
+	- DistilBERT-Frozen (train classification head only)
+	- DistilBERT-Unfrozen (fine-tune full backbone)
+3. Note: the DistilBERT experiments typically require the `transformers` library and a backend (PyTorch or TensorFlow). We will choose one backend and add the minimal required dependencies before implementing those runs.
 
 ### Further Considerations 1. Artifact storage layout for features
 1. Use a run-stamped folder under [data/03-features/](data/03-features/) (e.g., `<dataset>/<feature_set>/<run_id>/`) to store `X_*`, vectorizer, and a manifest without cluttering entrypoints.

@@ -9,7 +9,22 @@
   },
   "paths": {
     "raw_dir": "data/01-raw/huffpost",
-    "raw_filename": "News_Category_Dataset_v2.json"
+    "raw_filename": "News_Category_Dataset_v2.json",
+    "preprocessed_dir": "data/02-preprocessed/huffpost/v1",
+    "preprocessed_full_filename": "full_clean.csv",
+    "preprocessed_train_filename": "train.csv",
+    "preprocessed_valid_filename": "valid.csv",
+    "preprocessed_test_filename": "test.csv",
+    "features_dir": "data/03-features/huffpost/tfidf_v1",
+    "features_vectorizer_filename": "tfidf_vectorizer.joblib",
+    "features_label_encoder_filename": "label_encoder.joblib",
+    "features_x_train_filename": "X_train.npz",
+    "features_x_valid_filename": "X_valid.npz",
+    "features_x_test_filename": "X_test.npz",
+    "features_y_train_filename": "y_train.npy",
+    "features_y_valid_filename": "y_valid.npy",
+    "features_y_test_filename": "y_test.npy",
+    "predictions_dir": "data/04-predictions/huffpost"
   },
   "schema": {
     "label_col": "category",
@@ -26,12 +41,59 @@
     "drop_empty_text": true,
     "min_text_length": 1
   },
+  "preprocess": {
+    "drop_missing_category": true,
+    "drop_rare_labels_min_count": 2,
+    "dedupe_on_text": false
+  },
   "split": {
     "strategy": "stratified",
     "train_ratio": 0.8,
     "valid_ratio": 0.1,
     "test_ratio": 0.1,
     "random_seed": 42
+  },
+  "features": {
+    "type": "tfidf",
+    "tfidf": {
+      "max_features": 50000,
+      "ngram_range": [1, 2],
+      "min_df": 2,
+      "max_df": 0.95,
+      "lowercase": true,
+      "sublinear_tf": true,
+      "dtype": "float32"
+    }
+  },
+  "training": {
+    "max_epochs": 3,
+    "early_stopping": {
+      "monitor": "val_loss",
+      "patience": 2,
+      "restore_best_weights": true
+    },
+    "batch_size": 32,
+    "random_seed": 42
+  },
+  "experiments": {
+    "tfidf_logreg": {
+      "C": 4.0,
+      "max_iter": 200,
+      "solver": "saga"
+    },
+    "tfidf_dense": {
+      "svd_components": 256,
+      "learning_rate": 0.001,
+      "hidden_units": [
+        256
+      ],
+      "dropout": 0.2
+    },
+    "distilbert": {
+      "model_name": "distil_bert_base_en_uncased",
+      "max_length": 64,
+      "learning_rate": 0.00005
+    }
   },
   "visualization": {
     "color_palette": [

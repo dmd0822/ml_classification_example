@@ -5,8 +5,11 @@ scikit-learn==1.8.0
 kagglehub==0.3.13
 seaborn==0.13.2
 tensorflow==2.20.0
+tensorflow-text==2.20.0; platform_system != "Windows"
 spacy==3.8.11
 keras_hub==0.25.0
+transformers==4.57.3
+tf-keras==2.20.1
 
 # Visualization (optional but common)
 matplotlib==3.10.8

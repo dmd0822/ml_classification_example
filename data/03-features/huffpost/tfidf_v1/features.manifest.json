@@ -1,0 +1,86 @@
+{
+  "generated_at_utc": "2025-12-22T18:28:21.018075+00:00",
+  "inputs": {
+    "preprocessed_dir": "data/02-preprocessed/huffpost/v1"
+  },
+  "outputs": {
+    "features_dir": "data/03-features/huffpost/tfidf_v1",
+    "vectorizer": "data/03-features/huffpost/tfidf_v1/tfidf_vectorizer.joblib",
+    "label_encoder": "data/03-features/huffpost/tfidf_v1/label_encoder.joblib",
+    "x_train": "data/03-features/huffpost/tfidf_v1/X_train.npz",
+    "x_valid": "data/03-features/huffpost/tfidf_v1/X_valid.npz",
+    "x_test": "data/03-features/huffpost/tfidf_v1/X_test.npz",
+    "y_train": "data/03-features/huffpost/tfidf_v1/y_train.npy",
+    "y_valid": "data/03-features/huffpost/tfidf_v1/y_valid.npy",
+    "y_test": "data/03-features/huffpost/tfidf_v1/y_test.npy"
+  },
+  "schema": {
+    "label_col": "category",
+    "text_col": "text"
+  },
+  "tfidf": {
+    "max_features": 50000,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "max_df": 0.95,
+    "lowercase": true,
+    "sublinear_tf": true,
+    "dtype": "float32"
+  },
+  "stats": {
+    "n_train": 160681,
+    "n_valid": 20086,
+    "n_test": 20086,
+    "n_features": 50000,
+    "train_nnz": 5934188
+  },
+  "labels": {
+    "num_classes": 41,
+    "classes": [
+      "ARTS",
+      "ARTS & CULTURE",
+      "BLACK VOICES",
+      "BUSINESS",
+      "COLLEGE",
+      "COMEDY",
+      "CRIME",
+      "CULTURE & ARTS",
+      "DIVORCE",
+      "EDUCATION",
+      "ENTERTAINMENT",
+      "ENVIRONMENT",
+      "FIFTY",
+      "FOOD & DRINK",
+      "GOOD NEWS",
+      "GREEN",
+      "HEALTHY LIVING",
+      "HOME & LIVING",
+      "IMPACT",
+      "LATINO VOICES",
+      "MEDIA",
+      "MONEY",
+      "PARENTING",
+      "PARENTS",
+      "POLITICS",
+      "QUEER VOICES",
+      "RELIGION",
+      "SCIENCE",
+      "SPORTS",
+      "STYLE",
+      "STYLE & BEAUTY",
+      "TASTE",
+      "TECH",
+      "THE WORLDPOST",
+      "TRAVEL",
+      "WEDDINGS",
+      "WEIRD NEWS",
+      "WELLNESS",
+      "WOMEN",
+      "WORLD NEWS",
+      "WORLDPOST"
+    ]
+  }
+}

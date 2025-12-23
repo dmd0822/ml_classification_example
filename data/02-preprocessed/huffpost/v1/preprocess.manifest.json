@@ -1,0 +1,41 @@
+{
+  "generated_at_utc": "2025-12-22T18:20:05.104062+00:00",
+  "inputs": {
+    "raw_path": "data/01-raw/huffpost/News_Category_Dataset_v2.json"
+  },
+  "outputs": {
+    "full": "data/02-preprocessed/huffpost/v1/full_clean.csv",
+    "train": "data/02-preprocessed/huffpost/v1/train.csv",
+    "valid": "data/02-preprocessed/huffpost/v1/valid.csv",
+    "test": "data/02-preprocessed/huffpost/v1/test.csv"
+  },
+  "stats": {
+    "rows_in": 200853,
+    "rows_out": 200853,
+    "dropped_missing_category": 0,
+    "dropped_empty_text": 0,
+    "dropped_duplicates": 0,
+    "dropped_rare_labels": 0,
+    "label_cardinality_out": 41
+  },
+  "split": {
+    "strategy": "stratified",
+    "train_ratio": 0.8,
+    "valid_ratio": 0.1,
+    "test_ratio": 0.1,
+    "random_seed": 42
+  },
+  "schema": {
+    "label_col": "category",
+    "headline_col": "headline",
+    "description_col": "short_description",
+    "text_col": "text"
+  },
+  "text_assembly": {
+    "separator": "[SEP]",
+    "strip": true,
+    "normalize_whitespace": true,
+    "drop_empty_text": true,
+    "min_text_length": 1
+  }
+}

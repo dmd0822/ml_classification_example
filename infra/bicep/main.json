@@ -1,0 +1,388 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "8475257552356964880"
+    }
+  },
+  "definitions": {
+    "KeyVaultSecretMapping": {
+      "type": "object",
+      "properties": {
+        "secretName": {
+          "type": "string",
+          "metadata": {
+            "description": "The Container App secret name (referenced by envVar.secretRef)."
+          }
+        },
+        "envVarName": {
+          "type": "string",
+          "metadata": {
+            "description": "The environment variable name passed into the container."
+          }
+        },
+        "keyVaultUrl": {
+          "type": "string",
+          "metadata": {
+            "description": "The Key Vault secret URL, e.g. https://<vault>.vault.azure.net/secrets/<name> (version optional)."
+          }
+        }
+      },
+      "metadata": {
+        "description": "Optional mapping of Key Vault secrets into container environment variables. No secret values live in IaC; only Key Vault secret URLs are referenced."
+      }
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "metadata": {
+        "description": "Short environment name used in resource naming (e.g., dev, prod)."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "mlclass",
+      "minLength": 5,
+      "metadata": {
+        "description": "Base name used for resources. Only lowercase letters/numbers/hyphens recommended."
+      }
+    },
+    "imageRepository": {
+      "type": "string",
+      "defaultValue": "ml-classification-infer-api",
+      "metadata": {
+        "description": "Container image repository name (in ACR)."
+      }
+    },
+    "imageTag": {
+      "type": "string",
+      "defaultValue": "latest",
+      "metadata": {
+        "description": "Container image tag (in ACR)."
+      }
+    },
+    "containerPort": {
+      "type": "int",
+      "defaultValue": 8080,
+      "metadata": {
+        "description": "Container app exposed port. Must match the container listener (Dockerfile exposes 8080)."
+      }
+    },
+    "containerCpu": {
+      "type": "string",
+      "defaultValue": "1",
+      "metadata": {
+        "description": "CPU cores for the container (e.g. 0.5, 1). Use string so fractional values are supported."
+      }
+    },
+    "containerMemory": {
+      "type": "string",
+      "defaultValue": "2Gi",
+      "metadata": {
+        "description": "Memory for the container (e.g. 1Gi, 2Gi)."
+      }
+    },
+    "minReplicas": {
+      "type": "int",
+      "defaultValue": 0,
+      "metadata": {
+        "description": "Minimum number of replicas."
+      }
+    },
+    "maxReplicas": {
+      "type": "int",
+      "defaultValue": 2,
+      "metadata": {
+        "description": "Maximum number of replicas."
+      }
+    },
+    "externalIngress": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Whether the Container App should be publicly accessible (external ingress)."
+      }
+    },
+    "nonSecretEnvVars": {
+      "type": "array",
+      "defaultValue": [
+        {
+          "name": "MAX_LENGTH",
+          "value": "64"
+        }
+      ],
+      "metadata": {
+        "description": "Non-secret environment variables for the container."
+      }
+    },
+    "keyVaultSecrets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/KeyVaultSecretMapping"
+      },
+      "defaultValue": []
+    },
+    "acrSkuName": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "metadata": {
+        "description": "ACR SKU (Basic/Standard/Premium)."
+      }
+    },
+    "keyVaultSkuName": {
+      "type": "string",
+      "defaultValue": "standard",
+      "metadata": {
+        "description": "Key Vault SKU (standard/premium)."
+      }
+    }
+  },
+  "variables": {
+    "copy": [
+      {
+        "name": "containerAppSecrets",
+        "count": "[length(parameters('keyVaultSecrets'))]",
+        "input": {
+          "name": "[parameters('keyVaultSecrets')[copyIndex('containerAppSecrets')].secretName]",
+          "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+          "keyVaultUrl": "[parameters('keyVaultSecrets')[copyIndex('containerAppSecrets')].keyVaultUrl]"
+        }
+      },
+      {
+        "name": "containerAppSecretEnvVars",
+        "count": "[length(parameters('keyVaultSecrets'))]",
+        "input": {
+          "name": "[parameters('keyVaultSecrets')[copyIndex('containerAppSecretEnvVars')].envVarName]",
+          "secretRef": "[parameters('keyVaultSecrets')[copyIndex('containerAppSecretEnvVars')].secretName]"
+        }
+      },
+      {
+        "name": "containerAppNonSecretEnvVars",
+        "count": "[length(parameters('nonSecretEnvVars'))]",
+        "input": {
+          "name": "[string(parameters('nonSecretEnvVars')[copyIndex('containerAppNonSecretEnvVars')].name)]",
+          "value": "[string(parameters('nonSecretEnvVars')[copyIndex('containerAppNonSecretEnvVars')].value)]"
+        }
+      }
+    ],
+    "sanitizedPrefix": "[toLower(replace(replace(parameters('namePrefix'), '_', '-'), ' ', '-'))]",
+    "envSuffix": "[toLower(parameters('environmentName'))]",
+    "acrName": "[take(format('mlacr{0}', uniqueString(resourceGroup().id, variables('sanitizedPrefix'), variables('envSuffix'))), 50)]",
+    "logAnalyticsName": "[take(format('{0}-{1}-law', variables('sanitizedPrefix'), variables('envSuffix')), 63)]",
+    "containerAppsEnvName": "[take(format('{0}-{1}-cae', variables('sanitizedPrefix'), variables('envSuffix')), 32)]",
+    "containerAppName": "[take(format('{0}-{1}-api', variables('sanitizedPrefix'), variables('envSuffix')), 32)]",
+    "keyVaultName": "[take(format('{0}-{1}-kv', variables('sanitizedPrefix'), variables('envSuffix')), 24)]",
+    "identityName": "[take(format('{0}-{1}-uai', variables('sanitizedPrefix'), variables('envSuffix')), 128)]",
+    "roleDefinitionIdAcrPull": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+    "roleDefinitionIdKeyVaultSecretsUser": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]"
+  },
+  "resources": {
+    "logAnalytics": {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "retentionInDays": 30,
+        "sku": {
+          "name": "PerGB2018"
+        }
+      }
+    },
+    "acr": {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('acrName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('acrSkuName')]"
+      },
+      "properties": {
+        "adminUserEnabled": false,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    "userIdentity": {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2024-11-30",
+      "name": "[variables('identityName')]",
+      "location": "[parameters('location')]"
+    },
+    "keyVault": {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2024-11-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "family": "A",
+          "name": "[parameters('keyVaultSkuName')]"
+        },
+        "enableRbacAuthorization": true,
+        "accessPolicies": [],
+        "enableSoftDelete": true
+      }
+    },
+    "containerAppsEnv": {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2024-03-01",
+      "name": "[variables('containerAppsEnvName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference('logAnalytics').customerId]",
+            "sharedKey": "[listKeys('logAnalytics', '2023-09-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "logAnalytics"
+      ]
+    },
+    "acrPullRole": {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', variables('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', variables('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[variables('roleDefinitionIdAcrPull')]",
+        "principalId": "[reference('userIdentity').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "acr",
+        "userIdentity"
+      ]
+    },
+    "kvSecretsUserRole": {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.KeyVault/vaults/{0}', variables('keyVaultName'))]",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), 'KeyVaultSecretsUser')]",
+      "properties": {
+        "roleDefinitionId": "[variables('roleDefinitionIdKeyVaultSecretsUser')]",
+        "principalId": "[reference('userIdentity').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "keyVault",
+        "userIdentity"
+      ]
+    },
+    "containerApp": {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[variables('containerAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')))]": {}
+        }
+      },
+      "properties": {
+        "environmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppsEnvName'))]",
+        "configuration": {
+          "ingress": {
+            "external": "[parameters('externalIngress')]",
+            "targetPort": "[parameters('containerPort')]",
+            "transport": "auto"
+          },
+          "registries": [
+            {
+              "server": "[reference('acr').loginServer]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+            }
+          ],
+          "secrets": "[variables('containerAppSecrets')]"
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "api",
+              "image": "[format('{0}/{1}:{2}', reference('acr').loginServer, parameters('imageRepository'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json(parameters('containerCpu'))]",
+                "memory": "[parameters('containerMemory')]"
+              },
+              "env": "[union(variables('containerAppNonSecretEnvVars'), variables('containerAppSecretEnvVars'))]",
+              "probes": [
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/health",
+                    "port": "[parameters('containerPort')]"
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 3
+                },
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/health",
+                    "port": "[parameters('containerPort')]"
+                  },
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 20,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 3
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": "[parameters('minReplicas')]",
+            "maxReplicas": "[parameters('maxReplicas')]",
+            "rules": [
+              {
+                "name": "http",
+                "http": {
+                  "metadata": {
+                    "concurrentRequests": "50"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "dependsOn": [
+        "acr",
+        "containerAppsEnv",
+        "userIdentity"
+      ]
+    }
+  },
+  "outputs": {
+    "acrLoginServer": {
+      "type": "string",
+      "value": "[reference('acr').loginServer]"
+    },
+    "containerAppFqdn": {
+      "type": "string",
+      "value": "[reference('containerApp').configuration.ingress.fqdn]"
+    },
+    "keyVaultUri": {
+      "type": "string",
+      "value": "[reference('keyVault').vaultUri]"
+    }
+  }
+}

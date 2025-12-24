@@ -92,7 +92,15 @@
     "distilbert": {
       "model_name": "distil_bert_base_en_uncased",
       "max_length": 64,
-      "learning_rate": 0.00005
+      "learning_rate": 0.00005,
+      "two_phase": {
+        "warmup_epochs": 2,
+        "warmup_learning_rate": 0.00005,
+        "finetune_epochs": 4,
+        "finetune_learning_rate": 0.00001,
+        "dropout": 0.3,
+        "weight_decay": 0.00001
+      }
     }
   },
   "visualization": {

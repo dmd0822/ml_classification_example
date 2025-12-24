@@ -1,0 +1,23 @@
+{
+  "generated_at_utc": "2025-12-24T01:16:11.955139+00:00",
+  "metrics": {
+    "accuracy": 0.7123867370307677,
+    "macro_f1": 0.6182816476642485
+  },
+  "extra": {
+    "experiment": "distilbert_two_phase",
+    "split": "test",
+    "preset": "distil_bert_base_en_uncased",
+    "hf_model": "distilbert-base-uncased",
+    "max_length": 64,
+    "schedule": {
+      "warmup_epochs": 2,
+      "warmup_learning_rate": 5e-05,
+      "finetune_epochs": 4,
+      "finetune_learning_rate": 1e-05
+    },
+    "dropout": 0.3,
+    "weight_decay": 1e-05,
+    "backend": "keras_hub_backbone+transformers_tokenizer"
+  }
+}

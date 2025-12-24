@@ -54,6 +54,116 @@ class BertRunConfig:
     early_restore_best: bool
 
 
+@dataclass(frozen=True)
+class TwoPhaseBertRunConfig:
+    """Resolved config for a two-phase DistilBERT schedule.
+
+    Phase 1: warm up the classifier head while keeping the backbone frozen.
+    Phase 2: fine-tune the full backbone.
+    """
+
+    preset: str
+    hf_model_name: str
+    max_length: int
+    batch_size: int
+    warmup_epochs: int
+    warmup_learning_rate: float
+    finetune_epochs: int
+    finetune_learning_rate: float
+    dropout: float
+    weight_decay: float
+    seed: int
+
+
+def _make_adamw(*, learning_rate: float, weight_decay: float) -> tf.keras.optimizers.Optimizer:
+    """Create an AdamW optimizer with best-effort compatibility across TF versions."""
+
+    try:
+        adamw_cls = tf.keras.optimizers.AdamW
+    except AttributeError:  # pragma: no cover
+        adamw_cls = tf.keras.optimizers.experimental.AdamW
+
+    return adamw_cls(learning_rate=float(learning_rate), weight_decay=float(weight_decay))
+
+
+def _extract_sequence_output(backbone_out: Any) -> tf.Tensor:
+    """Extract sequence output from a Keras Hub backbone call result."""
+
+    if isinstance(backbone_out, dict):
+        sequence = backbone_out.get("sequence_output")
+    else:
+        sequence = backbone_out
+
+    if sequence is None:
+        raise RuntimeError("DistilBertBackbone did not return a sequence output.")
+    return sequence
+
+
+def _build_tokenized_backbone_model(
+    *,
+    backbone: tf.keras.Model,
+    max_length: int,
+    num_classes: int,
+    dropout: float,
+) -> tf.keras.Model:
+    """Build a classifier head on top of a tokenized DistilBERT backbone."""
+
+    token_ids_in = tf.keras.Input(shape=(int(max_length),), dtype=tf.int32, name="token_ids")
+    padding_mask_in = tf.keras.Input(shape=(int(max_length),), dtype=tf.int32, name="padding_mask")
+    backbone_out = backbone({"token_ids": token_ids_in, "padding_mask": padding_mask_in})
+
+    sequence = _extract_sequence_output(backbone_out)
+    cls_token = sequence[:, 0, :]
+
+    x = cls_token
+    if dropout and float(dropout) > 0:
+        x = tf.keras.layers.Dropout(float(dropout), name="head_dropout")(x)
+
+    logits = tf.keras.layers.Dense(int(num_classes), name="classifier")(x)
+    return tf.keras.Model(inputs={"token_ids": token_ids_in, "padding_mask": padding_mask_in}, outputs=logits)
+
+
+def _fit_two_phase(
+    *,
+    model: tf.keras.Model,
+    backbone: tf.keras.Model,
+    ds_train: tf.data.Dataset,
+    ds_valid: tf.data.Dataset,
+    warmup_epochs: int,
+    warmup_lr: float,
+    finetune_epochs: int,
+    finetune_lr: float,
+    weight_decay: float,
+) -> None:
+    """Fit with a two-phase schedule: head warmup, then full fine-tune."""
+
+    backbone.trainable = False
+    model.compile(
+        optimizer=_make_adamw(learning_rate=warmup_lr, weight_decay=weight_decay),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy")],
+    )
+    model.fit(
+        ds_train,
+        validation_data=ds_valid,
+        epochs=int(warmup_epochs),
+        verbose=2,
+    )
+
+    backbone.trainable = True
+    model.compile(
+        optimizer=_make_adamw(learning_rate=finetune_lr, weight_decay=weight_decay),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy")],
+    )
+    model.fit(
+        ds_train,
+        validation_data=ds_valid,
+        epochs=int(finetune_epochs),
+        verbose=2,
+    )
+
+
 def _resolve_hf_model_name(model_name: str) -> str:
     """Resolve a config model name to a HuggingFace model id.
 
@@ -120,21 +230,12 @@ def _run_distilbert_experiment_tokenized_backbone(
     )
     backbone.trainable = bool(unfrozen)
 
-    token_ids_in = tf.keras.Input(shape=(int(bert_cfg.max_length),), dtype=tf.int32, name="token_ids")
-    padding_mask_in = tf.keras.Input(shape=(int(bert_cfg.max_length),), dtype=tf.int32, name="padding_mask")
-    backbone_out = backbone({"token_ids": token_ids_in, "padding_mask": padding_mask_in})
-
-    if isinstance(backbone_out, dict):
-        sequence = backbone_out.get("sequence_output")
-    else:
-        sequence = backbone_out
-
-    if sequence is None:
-        raise RuntimeError("DistilBertBackbone did not return a sequence output.")
-
-    cls_token = sequence[:, 0, :]
-    logits = tf.keras.layers.Dense(int(len(label_encoder.classes_)), name="classifier")(cls_token)
-    model = tf.keras.Model(inputs={"token_ids": token_ids_in, "padding_mask": padding_mask_in}, outputs=logits)
+    model = _build_tokenized_backbone_model(
+        backbone=backbone,
+        max_length=int(bert_cfg.max_length),
+        num_classes=int(len(label_encoder.classes_)),
+        dropout=0.0,
+    )
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=float(bert_cfg.learning_rate)),
@@ -242,6 +343,55 @@ def _resolve_bert_cfg(config: Mapping[str, Any]) -> BertRunConfig:
         early_monitor=str(early_cfg.get("monitor", "val_loss")),
         early_patience=int(early_cfg.get("patience", 2)),
         early_restore_best=bool(early_cfg.get("restore_best_weights", True)),
+    )
+
+
+def _resolve_distilbert_two_phase_cfg(config: Mapping[str, Any]) -> TwoPhaseBertRunConfig:
+    """Resolve two-phase DistilBERT config values with defaults.
+
+    Supports either:
+    - experiments.distilbert.two_phase
+    - experiments.distilbert_two_phase
+    """
+
+    train_cfg = config.get("training", {})
+    exp_all = config.get("experiments", {})
+
+    distilbert_cfg = exp_all.get("distilbert", {})
+    if isinstance(distilbert_cfg, Mapping):
+        two_phase_cfg = distilbert_cfg.get("two_phase", {})
+    else:
+        two_phase_cfg = {}
+
+    if not isinstance(two_phase_cfg, Mapping):
+        two_phase_cfg = {}
+
+    if "distilbert_two_phase" in exp_all and isinstance(exp_all.get("distilbert_two_phase"), Mapping):
+        # Allow top-level override as well.
+        two_phase_cfg = {**two_phase_cfg, **exp_all.get("distilbert_two_phase", {})}
+
+    model_name_raw = str(distilbert_cfg.get("model_name", "distil_bert_base_en_uncased"))
+    preset_map = {
+        "distilbert-base-uncased": "distil_bert_base_en_uncased",
+        "distilbert-base-cased": "distil_bert_base_en",
+        "distilbert-base-multilingual-cased": "distil_bert_base_multi",
+    }
+    preset = preset_map.get(model_name_raw, model_name_raw)
+
+    hf_model_name = _resolve_hf_model_name(model_name_raw)
+
+    return TwoPhaseBertRunConfig(
+        preset=str(preset),
+        hf_model_name=str(hf_model_name),
+        max_length=int(distilbert_cfg.get("max_length", 64)),
+        batch_size=int(train_cfg.get("batch_size", 32)),
+        warmup_epochs=int(two_phase_cfg.get("warmup_epochs", 2)),
+        warmup_learning_rate=float(two_phase_cfg.get("warmup_learning_rate", 5e-5)),
+        finetune_epochs=int(two_phase_cfg.get("finetune_epochs", 4)),
+        finetune_learning_rate=float(two_phase_cfg.get("finetune_learning_rate", 1e-5)),
+        dropout=float(two_phase_cfg.get("dropout", 0.3)),
+        weight_decay=float(two_phase_cfg.get("weight_decay", 1e-5)),
+        seed=int(train_cfg.get("random_seed", 42)),
     )
 
 
@@ -398,5 +548,154 @@ def run_distilbert_experiment(
             unfrozen=unfrozen,
             seed=seed,
         )
+
+    return run_dir
+
+
+def run_distilbert_two_phase_experiment(config: Mapping[str, Any], *, force: bool = False) -> Path:
+    """Run a two-phase DistilBERT experiment.
+
+    Schedule:
+    - Head warmup (backbone frozen)
+    - Full fine-tuning (backbone unfrozen)
+
+    This always uses the tokenized-backbone path so the saved model matches
+    the inference API input contract (expects token_ids/padding_mask).
+    """
+
+    paths_cfg = config["paths"]
+    schema_cfg = config["schema"]
+
+    text_col = str(schema_cfg["text_col"])
+    label_col = str(schema_cfg["label_col"])
+
+    df_train, df_valid, df_test = _load_preprocessed(paths_cfg)
+
+    for name, df in ("train", df_train), ("valid", df_valid), ("test", df_test):
+        if text_col not in df.columns or label_col not in df.columns:
+            raise ValueError(f"{name} split missing required columns: {text_col}, {label_col}")
+
+    label_encoder = joblib.load(Path(str(paths_cfg["features_dir"])) / str(paths_cfg["features_label_encoder_filename"]))
+
+    y_train = label_encoder.transform(df_train[label_col].fillna("").astype("string"))
+    y_valid = label_encoder.transform(df_valid[label_col].fillna("").astype("string"))
+    y_test = label_encoder.transform(df_test[label_col].fillna("").astype("string"))
+
+    text_train = df_train[text_col].fillna("").astype("string").to_numpy()
+    text_valid = df_valid[text_col].fillna("").astype("string").to_numpy()
+    text_test = df_test[text_col].fillna("").astype("string").to_numpy()
+
+    cfg = _resolve_distilbert_two_phase_cfg(config)
+    tf.random.set_seed(int(cfg.seed))
+
+    experiment_name = "distilbert_two_phase"
+    run_dir = make_run_dir(str(paths_cfg["predictions_dir"]), experiment_name=experiment_name)
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(cfg.hf_model_name)
+
+    def encode(text_arr: np.ndarray) -> Dict[str, tf.Tensor]:
+        enc = tokenizer(
+            text_arr.tolist(),
+            truncation=True,
+            padding="max_length",
+            max_length=int(cfg.max_length),
+            return_tensors="tf",
+        )
+        token_ids = tf.cast(enc["input_ids"], tf.int32)
+        padding_mask = tf.cast(enc["attention_mask"], tf.int32)
+        return {"token_ids": token_ids, "padding_mask": padding_mask}
+
+    x_train = encode(text_train)
+    x_valid = encode(text_valid)
+    x_test = encode(text_test)
+
+    ds_train = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+    ds_train = ds_train.shuffle(
+        buffer_size=min(len(y_train), 10_000),
+        seed=int(cfg.seed),
+        reshuffle_each_iteration=True,
+    )
+    ds_train = ds_train.batch(int(cfg.batch_size)).prefetch(tf.data.AUTOTUNE)
+
+    ds_valid = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
+    ds_valid = ds_valid.batch(int(cfg.batch_size)).prefetch(tf.data.AUTOTUNE)
+
+    backbone = keras_hub.models.DistilBertBackbone.from_preset(
+        str(cfg.preset),
+        sequence_length=int(cfg.max_length),
+    )
+
+    model = _build_tokenized_backbone_model(
+        backbone=backbone,
+        max_length=int(cfg.max_length),
+        num_classes=int(len(label_encoder.classes_)),
+        dropout=float(cfg.dropout),
+    )
+
+    _fit_two_phase(
+        model=model,
+        backbone=backbone,
+        ds_train=ds_train,
+        ds_valid=ds_valid,
+        warmup_epochs=int(cfg.warmup_epochs),
+        warmup_lr=float(cfg.warmup_learning_rate),
+        finetune_epochs=int(cfg.finetune_epochs),
+        finetune_lr=float(cfg.finetune_learning_rate),
+        weight_decay=float(cfg.weight_decay),
+    )
+
+    def predict_labels(x: Dict[str, tf.Tensor]) -> np.ndarray:
+        ds = tf.data.Dataset.from_tensor_slices(x).batch(int(cfg.batch_size))
+        logits_arr = model.predict(ds, verbose=0)
+        return np.asarray(np.argmax(np.asarray(logits_arr), axis=1), dtype=np.int64)
+
+    for split, x, y_true in (("valid", x_valid, y_valid), ("test", x_test, y_test)):
+        y_pred = predict_labels(x)
+
+        metrics = compute_metrics(y_true, y_pred)
+        write_metrics_json(
+            run_dir / f"metrics_{split}.json",
+            metrics=metrics,
+            extra={
+                "experiment": experiment_name,
+                "split": split,
+                "preset": str(cfg.preset),
+                "hf_model": str(cfg.hf_model_name),
+                "max_length": int(cfg.max_length),
+                "schedule": {
+                    "warmup_epochs": int(cfg.warmup_epochs),
+                    "warmup_learning_rate": float(cfg.warmup_learning_rate),
+                    "finetune_epochs": int(cfg.finetune_epochs),
+                    "finetune_learning_rate": float(cfg.finetune_learning_rate),
+                },
+                "dropout": float(cfg.dropout),
+                "weight_decay": float(cfg.weight_decay),
+                "backend": "keras_hub_backbone+transformers_tokenizer",
+            },
+        )
+
+        y_true_label = label_encoder.inverse_transform(y_true)
+        y_pred_label = label_encoder.inverse_transform(y_pred)
+
+        write_predictions_csv(
+            run_dir / f"predictions_{split}.csv",
+            row_id=None,
+            y_true=y_true,
+            y_pred=y_pred,
+            y_true_label=y_true_label,
+            y_pred_label=y_pred_label,
+        )
+
+        write_classification_report(
+            run_dir / f"classification_report_{split}.txt",
+            y_true=y_true,
+            y_pred=y_pred,
+            target_names=[str(c) for c in label_encoder.classes_.tolist()],
+        )
+
+    model.save(run_dir / "keras_model.keras", include_optimizer=False)
+    tokenizer.save_pretrained(run_dir / "tokenizer")
 
     return run_dir

@@ -67,6 +67,7 @@ Other experiments:
 python -m entrypoints.train_eval_huffpost_tfidf_dense --config config/huffpost_category_text.json
 python -m entrypoints.train_eval_huffpost_distilbert_frozen --config config/huffpost_category_text.json
 python -m entrypoints.train_eval_huffpost_distilbert_unfrozen --config config/huffpost_category_text.json
+python -m entrypoints.train_eval_huffpost_distilbert_two_phase --config config/huffpost_category_text.json
 ```
 
 ## How This Fits

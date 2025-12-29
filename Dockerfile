@@ -21,10 +21,10 @@ COPY src/ ./src/
 COPY entrypoints/ ./entrypoints/
 COPY config/ ./config/
 
-# Bake best-model artifacts (from the report: distilbert_unfrozen/20251223T010101Z)
+# Bake best-model artifacts (from the report: distilbert_two_phase/20251223T165758Z)
 RUN mkdir -p /app/artifacts/best
-COPY data/04-predictions/huffpost/distilbert_unfrozen/20251223T010101Z/keras_model.keras /app/artifacts/best/keras_model.keras
-COPY data/04-predictions/huffpost/distilbert_unfrozen/20251223T010101Z/tokenizer/ /app/artifacts/best/tokenizer/
+COPY data/04-predictions/huffpost/distilbert_two_phase/20251223T165758Z/keras_model.keras /app/artifacts/best/keras_model.keras
+COPY data/04-predictions/huffpost/distilbert_two_phase/20251223T165758Z/tokenizer/ /app/artifacts/best/tokenizer/
 COPY data/03-features/huffpost/tfidf_v1/label_encoder.joblib /app/artifacts/best/label_encoder.joblib
 
 ENV KERAS_MODEL_PATH=/app/artifacts/best/keras_model.keras \

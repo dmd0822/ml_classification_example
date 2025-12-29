@@ -16,6 +16,8 @@ from typing import Any, Dict, Mapping, Tuple
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from src.pipelines.common.text import combine_text, normalize_whitespace
+
 
 @dataclass(frozen=True)
 class PreprocessOutputs:
@@ -28,33 +30,10 @@ class PreprocessOutputs:
     manifest_path: Path
 
 
-def normalize_whitespace(text: str) -> str:
-    """Normalize whitespace for consistent downstream text processing."""
+"""NOTE: Text assembly helpers live in `src.pipelines.common.text`.
 
-    # Collapse all whitespace runs (spaces/newlines/tabs) into single spaces.
-    return " ".join(str(text).split())
-
-
-def combine_text(
-    headline: str,
-    short_description: str,
-    *,
-    separator: str,
-    normalize: bool,
-    strip: bool,
-) -> str:
-    """Combine headline and description into a single text string."""
-
-    # Explicit string conversion makes this function tolerant to pandas NA types.
-    combined = f"{headline}{separator}{short_description}"
-
-    if normalize:
-        combined = normalize_whitespace(combined)
-
-    if strip:
-        combined = combined.strip()
-
-    return combined
+They are imported here to guarantee training/inference parity.
+"""
 
 
 def _ensure_required_columns(df: pd.DataFrame, required: Tuple[str, ...]) -> None:

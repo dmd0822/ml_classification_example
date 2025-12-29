@@ -240,20 +240,20 @@ Build:
 docker build -t ml-classification-infer-api:local .
 ```
 
+Note: `data/**` is excluded by default via `.dockerignore` (to keep the build context small). The `Dockerfile` relies on a whitelisted set of baked-in artifacts under `data/`.
+
 Run:
 
 ```powershell
-docker run --rm -p 8080:8080 ml-classification-infer-api:local
+docker run --rm -p 8000:8080 ml-classification-infer-api:local
 ```
 
 Test it:
 
 ```powershell
-curl http://localhost:8080/health
+curl.exe http://localhost:8000/health
 
-curl -X POST http://localhost:8080/predict \
-  -H "Content-Type: application/json" \
-  -d '{"headline":"NASA finds new planet","short_description":"A new exoplanet was discovered.","top_k":3}'
+curl.exe -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{"headline":"NASA finds new planet","short_description":"A new exoplanet was discovered.","top_k":3}'
 ```
 
 ## Contributing
